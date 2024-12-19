@@ -1,0 +1,132 @@
+import streamlit as st
+import google.generativeai as genai 
+from PyPDF2 import PdfReader
+import json
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.vectorstores import FAISS
+from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+
+GOOGLE_API_KEY = st.secrets['GOOGLE_API_KEY']
+
+# Reading the text from the pdfs
+def get_pdf_text(pdf_docs):
+    text = ""
+    for pdf in pdf_docs:
+        pdf_reader = PdfReader(pdf)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+    return text
+
+# Splitting the text into chunks
+def get_text_chunks(text):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=10000,
+        chunk_overlap=1000
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
+
+# Convert the chunks into vectors
+def get_vector_store(text_chunks):
+    embeddings = HuggingFaceBgeEmbeddings()
+    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+    vector_store.save_local('faiss_index')
+
+# Make a Conversational Chain
+def get_conversational_chain():
+    prompt_template = """
+        You are an expert in analyzing and understanding research papers. Your role is to assist in writing or completing sections of an incomplete research paper with clarity, precision, and technical accuracy. You excel at identifying key aspects of research and explaining advanced concepts, including mathematical formulations and algorithms.
+
+        Your tasks include drafting and completing the following sections based on the provided context:
+
+        1. **Abstract** (Present Tense):  
+        - Provide a 2-3 line introduction to the problem addressed in the research.  
+        - Highlight the limitations of existing methods or approaches.  
+        - Present the proposed method and its advantages, emphasizing its novelty or superiority.
+
+        2. **Conclusion** (Past Tense):  
+        - Summarize the key findings of the research.  
+        - Suggest potential future work or improvements in the field.
+
+        3. **Scope of the Research**:  
+        - Clearly state the research objectives, its scope, and its relevance to the domain.
+
+        4. **Introduction and Research Gap**:  
+        - Provide the background and motivation for the study.  
+        - Identify the specific research gap the study intends to address.
+
+        5. **Limitations**:  
+        - Discuss constraints, challenges, or shortcomings faced in the research.  
+        - Explain their impact on the findings or outcomes.
+
+        6. **Methodology**:  
+        - Detail the methods or approaches used, including relevant mathematical formulations, algorithms, or models.  
+        - Ensure mathematical explanations are clear, accurate, and logically structured.
+
+        7. **Evaluation**:  
+        - Explain how the results were validated using metrics, experiments, or comparative analyses.  
+        - Emphasize the performance of the proposed method with evidence from the research.
+
+        Additional Expertise:  
+        - You have a deep understanding of advanced mathematics and algorithms.  
+        - When asked, you can generate relevant code snippets in any programming language.  
+        - If information is unavailable in the context, respond concisely with: *"The answer is not available in the provided context."*
+
+        **Context**:  
+        {context}
+
+        **Question**:  
+        {question}
+
+        **Answer**:
+    """
+
+    model = ChatGoogleGenerativeAI(model = 'gemini-pro', temperature = 0.7, google_api_key = GOOGLE_API_KEY)
+    prompt = PromptTemplate(template = prompt_template, input_variables = ['context', 'question'])
+    chain = load_qa_chain(model, chain_type='stuff',prompt = prompt)
+    return chain
+
+# Take the user input
+def user_input(user_question):
+    embeddings = HuggingFaceBgeEmbeddings()
+    new_db = FAISS.load_local('faiss_index', embeddings, allow_dangerous_deserialization=True)
+    docs = new_db.similarity_search(user_question)
+    chain = get_conversational_chain()
+    response = chain(
+        {
+            "input_documents": docs,
+            'question': user_question
+        },
+        return_only_outputs=True
+    )
+
+    # Print message
+    st.write("Reply: ", response['output_text'])
+
+# Making an interface
+def main():
+    st.set_page_config("Scholar Bot")
+    st.header("Scholar Bot")
+
+    user_question = st.text_input("Ask a question from the PDF Files")
+    if user_question:
+        user_input(user_question)
+    
+    with st.sidebar:
+        st.title('Menu:')
+        pdf_docs = st.file_uploader("Upload you PDF Files and Click on Submit & Process Button", type='pdf',
+            accept_multiple_files=True)
+
+        if st.button('Submit & Process'):
+            with st.spinner('Processing...'):
+                raw_text = get_pdf_text(pdf_docs)
+                text_chunks = get_text_chunks(raw_text)
+                get_vector_store(text_chunks)
+                st.success("Done and You can ask query.")
+
+if __name__ == '__main__':
+    main()
