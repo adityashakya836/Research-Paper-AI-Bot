@@ -248,6 +248,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 
 # Set API Key
@@ -276,19 +277,25 @@ def get_vector_store(text_chunks):
 # Function to create the conversational chain
 def get_conversational_chain():
     prompt_template = """
-    You are an expert in research paper analysis. Use the provided context to answer questions precisely.
-    
-    **Context:**
-    {context}
-    
-    **Question:**
-    {question}
-    
-    **Answer:**
+        You are an expert in analyzing research papers. Answer based on the given context.
+        If context is unavailable, reply: *"The answer is not available in the provided context."*
+        
+        **Context**:  
+        {context}  
+        **Question**:  
+        {question}  
+        **Answer**:
     """
-    model = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.7, google_api_key=GOOGLE_API_KEY)
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    return model, prompt
+    
+    model = ChatGoogleGenerativeAI(
+        model='gemini-1.5-pro', 
+        temperature=0.7, 
+        google_api_key=GOOGLE_API_KEY
+    )
+    
+    prompt = PromptTemplate(template=prompt_template, input_variables=['context', 'question'])
+    
+    return load_qa_chain(model, chain_type='stuff', prompt=prompt)
 
 # Function to process user input
 def user_input(user_question, chat_history):
@@ -298,6 +305,11 @@ def user_input(user_question, chat_history):
     model, prompt = get_conversational_chain()
     response = model.generate(prompt.format(context=docs, question=user_question))
     chat_history.append((user_question, response))
+    messages = [
+    HumanMessage(content=user_question)
+    ]
+    
+    response = chain({'input_documents': docs, 'question': messages}, return_only_outputs=True)
     return response
 
 # Streamlit ChatGPT-like UI
