@@ -284,7 +284,7 @@ def get_vector_store(text_chunks):
 # Make a Conversational Chain
 def get_conversational_chain():
     prompt_template = """
-        You are an expert in analyzing and understanding research papers. Your role is to assist in writing or completing sections of an incomplete research paper with clarity, precision, and technical accuracy. You excel at identifying key aspects of research and explaining advanced concepts, including mathematical formulations and algorithms.
+        You are an expert in analyzing and understanding research papers. Your role is to assist in writing or completing sections of an incomplete research paper with clarity, precision, and technical accuracy.
 
         **Context**:  
         {context}
@@ -310,10 +310,11 @@ if "chat_history" not in st.session_state:
 
 # Custom loader
 def custom_loader():
-    with st.empty():
-        for _ in range(3):
-            st.write("⏳ Generating response...")
-            time.sleep(0.5)
+    loader = st.empty()
+    for i in range(3):
+        loader.markdown(f"⏳ Generating response{'.' * (i % 3 + 1)}")
+        time.sleep(0.5)
+    loader.empty()
 
 # Take the user input
 def user_input(user_question):
@@ -345,7 +346,7 @@ def user_input(user_question):
             for word in answer.split():
                 full_response += word + " "
                 response_container.markdown(full_response)
-                time.sleep(0.05)
+                time.sleep(0.02)
 
 # Making an interface
 def main():
