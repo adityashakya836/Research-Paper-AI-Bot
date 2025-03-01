@@ -250,6 +250,8 @@ from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain.chains import load_qa_chain
+
 
 # Set API Key
 GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
