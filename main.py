@@ -257,7 +257,7 @@ from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 
 GOOGLE_API_KEY = st.secrets['GOOGLE_API_KEY']
 
-# Reading the text from the pdfs
+# Reading the text from the PDFs
 def get_pdf_text(pdf_docs):
     text = ""
     for pdf in pdf_docs:
@@ -336,17 +336,23 @@ def user_input(user_question):
     # Store chat history
     st.session_state.chat_history.append((user_question, response['output_text']))
     
-    # Display chat history
-    for query, answer in st.session_state.chat_history:
+    # Display only the last response in real-time streaming
+    with st.chat_message("user"):
+        st.markdown(user_question)
+    with st.chat_message("assistant"):
+        response_container = st.empty()
+        full_response = ""
+        for word in response['output_text'].split():
+            full_response += word + " "
+            response_container.markdown(full_response)
+            time.sleep(0.02)
+    
+    # Display previous chat history
+    for query, answer in st.session_state.chat_history[:-1]:
         with st.chat_message("user"):
             st.markdown(query)
         with st.chat_message("assistant"):
-            response_container = st.empty()
-            full_response = ""
-            for word in answer.split():
-                full_response += word + " "
-                response_container.markdown(full_response)
-                time.sleep(0.02)
+            st.markdown(answer)
 
 # Making an interface
 def main():
@@ -372,3 +378,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
