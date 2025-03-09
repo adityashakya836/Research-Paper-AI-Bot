@@ -7,4 +7,3 @@ langchain-google-genai
 sentence_transformers
 langchain-community
 faiss-gpu
-faiss
